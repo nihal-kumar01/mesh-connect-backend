@@ -58,11 +58,28 @@ wss.on("connection", (ws) => {
 
     console.log("📩 Incoming:", data.type, "from", id);
 
-    // 🔁 Relay messages to target peer
+    // 🟢 👉 BROADCAST MODE (NEW)
+    if (data.type === "chat") {
+      Object.keys(clients).forEach((clientId) => {
+        if (
+          clientId !== id &&
+          clients[clientId]?.readyState === WebSocket.OPEN
+        ) {
+          clients[clientId].send(
+            JSON.stringify({
+              type: "chat",
+              from: id,
+              message: data.message,
+            })
+          );
+        }
+      });
+      return;
+    }
+
+    // 🔁 Peer-to-peer relay (keep this for WebRTC if needed)
     if (data.to && clients[data.to]) {
       if (clients[data.to].readyState === WebSocket.OPEN) {
-        console.log("➡️ Sending to", data.to);
-
         clients[data.to].send(
           JSON.stringify({
             ...data,
@@ -81,7 +98,6 @@ wss.on("connection", (ws) => {
 
     delete clients[id];
 
-    // 🔥 Notify remaining peers
     Object.keys(clients).forEach((clientId) => {
       if (clients[clientId]?.readyState === WebSocket.OPEN) {
         clients[clientId].send(
@@ -94,7 +110,6 @@ wss.on("connection", (ws) => {
     });
   });
 
-  // ❌ Handle error
   ws.on("error", (err) => {
     console.log("❌ Socket error:", err.message);
   });
